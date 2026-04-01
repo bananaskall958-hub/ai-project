@@ -1,83 +1,679 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Dodge Enhanced</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: black;
-        }
-        canvas {
-            border: 1px solid white;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NEON DODGE</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at center, #1e293b, #0a0f1c);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    .game-container {
+      position: relative;
+      text-align: center;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 2.8rem;
+      background: linear-gradient(90deg, #38bdf8, #a855f7, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 30px rgba(56, 189, 248, 0.6);
+      letter-spacing: 4px;
+    }
+    canvas {
+      background: #0b0f1a;
+      border: 6px solid #1e2937;
+      border-radius: 20px;
+      box-shadow: 
+        0 0 60px rgba(56, 189, 248, 0.4),
+        inset 0 0 40px rgba(0, 0, 0, 0.6);
+      display: block;
+    }
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      margin: 12px 0 8px;
+      font-size: 1.35rem;
+      font-weight: 600;
+      padding: 0 20px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .label { color: #94a3b8; font-size: 0.95rem; }
+    .value { 
+      color: #67e8f9; 
+      text-shadow: 0 0 10px #67e8f9;
+      min-width: 80px;
+      text-align: right;
+    }
+    #message {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 2.8rem;
+      font-weight: 700;
+      text-align: center;
+      text-shadow: 0 0 20px #f87171;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s;
+      z-index: 10;
+    }
+    .controls {
+      margin-top: 12px;
+      color: #64748b;
+      font-size: 0.95rem;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 15px;
+      padding: 0 20px;
+      font-size: 0.9rem;
+      color: #94a3b8;
+    }
+    .stat-box {
+      background: rgba(30, 41, 59, 0.6);
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+    }
+    .stat-box strong { color: #67e8f9; }
+    #combo-display {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #fde047;
+      text-shadow: 0 0 15px #fde047;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #wave-indicator {
+      position: absolute;
+      top: 20px;
+      left: 30px;
+      font-size: 1.2rem;
+      color: #a855f7;
+      text-shadow: 0 0 10px #a855f7;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.3); opacity: 0; }
+    }
+  </style>
 </head>
 <body>
-<canvas id="gameCanvas"></canvas>
+<div class="game-container">
+  <h1>NEON DODGE</h1>
+  
+  <div class="hud">
+    <div class="stat"><span class="label">SCORE</span><span id="score" class="value">0</span></div>
+    <div class="stat"><span class="label">COINS</span><span id="coins" class="value">0</span></div>
+    <div class="stat"><span class="label">LEVEL</span><span id="level" class="value">1</span></div>
+    <div class="stat"><span class="label">WAVE</span><span id="wave" class="value">1</span></div>
+    <div class="stat"><span class="label">BEST SCORE</span><span id="best" class="value">0</span></div>
+  </div>
+
+  <div id="wave-indicator"></div>
+  <div id="combo-display"></div>
+
+  <canvas id="game" width="800" height="520"></canvas>
+  
+  <div id="message"></div>
+  
+  <div class="controls">WASD / Arrow Keys to Move • SPACE to Dash • R to Restart • P to Pause</div>
+  
+  <div class="stats-grid">
+    <div class="stat-box">Enemies Dodged: <strong id="dodged">0</strong></div>
+    <div class="stat-box">Coins Collected: <strong id="coin-count">0</strong></div>
+    <div class="stat-box">Best Streak: <strong id="best-streak">0</strong></div>
+    <div class="stat-box">Play Time: <strong id="playtime">0s</strong></div>
+  </div>
+</div>
+
 <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-    let player = { x: canvas.width / 2, y: canvas.height / 2, size: 30, speed: 5 };
-    let bullets = [];
+const ui = {
+  score: document.getElementById("score"),
+  coins: document.getElementById("coins"),
+  level: document.getElementById("level"),
+  wave: document.getElementById("wave"),
+  best: document.getElementById("best"),
+  msg: document.getElementById("message"),
+  combo: document.getElementById("combo-display"),
+  waveIndicator: document.getElementById("wave-indicator"),
+  dodged: document.getElementById("dodged"),
+  coinCount: document.getElementById("coin-count"),
+  bestStreak: document.getElementById("best-streak"),
+  playtime: document.getElementById("playtime")
+};
 
-    document.addEventListener('keydown', (event) => {
-        switch (event.key) {
-            case 'ArrowUp':
-            case 'w':
-                player.y -= player.speed;
-                break;
-            case 'ArrowDown':
-            case 's':
-                player.y += player.speed;
-                break;
-            case 'ArrowLeft':
-            case 'a':
-                player.x -= player.speed;
-                break;
-            case 'ArrowRight':
-            case 'd':
-                player.x += player.speed;
-                break;
-        }
+let state = {
+  running: true,
+  paused: false,
+  score: 0,
+  coins: 0,
+  level: 1,
+  wave: 1,
+  multiplier: 1,
+  comboTimer: 0,
+  frame: 0,
+  shake: 0,
+  bestScore: localStorage.getItem("neonDodgeBestScore") || 0,
+  enemiesDodged: 0,
+  coinsCollected: 0,
+  bestStreak: localStorage.getItem("neonDodgeBestStreak") || 0,
+  currentStreak: 0,
+  playTime: 0,
+  dashCooldown: 0,
+  waveStartTime: 0,
+  waveChangeShown: false
+};
+
+const keys = {};
+
+const player = {
+  x: 384,
+  y: 420,
+  w: 34,
+  h: 34,
+  speed: 6.5,
+  dashSpeed: 15,
+  trail: [],
+  shield: false,
+  shieldTime: 0,
+  pulse: 0,
+  dashing: false,
+  dashTime: 0
+};
+
+let entities = {
+  enemies: [],
+  coins: [],
+  shields: [],
+  particles: [],
+  stars: [],
+  floatingTexts: []
+};
+
+for (let i = 0; i < 120; i++) {
+  entities.stars.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    size: Math.random() * 2.2 + 0.6,
+    speed: Math.random() * 0.8 + 0.4
+  });
+}
+
+ui.best.textContent = Math.floor(state.bestScore);
+
+function spawn(type) {
+  if (type === "enemy") {
+    const size = 22 + Math.random() * 28;
+    entities.enemies.push({
+      x: Math.random() * (canvas.width - size),
+      y: -size - 10,
+      w: size,
+      h: size,
+      speed: 2.2 + state.level * 0.45 + state.wave * 0.3,
+      pulse: 0
     });
+  } 
+  else if (type === "coin") {
+    entities.coins.push({
+      x: Math.random() * (canvas.width - 26) + 13,
+      y: -26,
+      size: 13,
+      speed: 3.2,
+      angle: 0
+    });
+  } 
+  else if (type === "shield") {
+    entities.shields.push({
+      x: Math.random() * (canvas.width - 26) + 13,
+      y: -26,
+      size: 13,
+      speed: 2.6
+    });
+  }
+}
 
-    function shoot() {
-        bullets.push({ x: player.x, y: player.y });
+function createParticles(x, y, color, count = 18) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const vel = 1.5 + Math.random() * 3.5;
+    entities.particles.push({
+      x, y,
+      vx: Math.cos(angle) * vel,
+      vy: Math.sin(angle) * vel,
+      life: 35 + Math.random() * 25,
+      color,
+      size: 3 + Math.random() * 4
+    });
+  }
+}
+
+function createFloatingText(x, y, text, color) {
+  entities.floatingTexts.push({
+    x, y,
+    text,
+    color,
+    life: 60,
+    vx: (Math.random() - 0.5) * 2,
+    vy: -2
+  });
+}
+
+function shakeScreen(intensity = 8) {
+  state.shake = intensity;
+}
+
+function collides(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x &&
+         a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+window.addEventListener("keydown", e => {
+  const key = e.key.toLowerCase();
+  keys[key] = true;
+  
+  if (!state.running && key === "r") resetGame();
+  if (key === "p") state.paused = !state.paused;
+  if (key === " " && state.running && !state.paused && state.dashCooldown <= 0) {
+    e.preventDefault();
+    player.dashing = true;
+    player.dashTime = 15;
+    state.dashCooldown = 60;
+  }
+});
+
+window.addEventListener("keyup", e => {
+  keys[e.key.toLowerCase()] = false;
+});
+
+function handlePlayer() {
+  const moveSpeed = player.dashing ? player.dashSpeed : player.speed;
+  
+  if (keys["arrowleft"] || keys["a"]) player.x -= moveSpeed;
+  if (keys["arrowright"] || keys["d"]) player.x += moveSpeed;
+  if (keys["arrowup"] || keys["w"]) player.y -= moveSpeed;
+  if (keys["arrowdown"] || keys["s"]) player.y += moveSpeed;
+
+  player.x = Math.max(10, Math.min(canvas.width - player.w - 10, player.x));
+  player.y = Math.max(10, Math.min(canvas.height - player.h - 10, player.y));
+
+  player.trail.push({ x: player.x + player.w/2, y: player.y + player.h/2 });
+  if (player.trail.length > (player.dashing ? 20 : 12)) player.trail.shift();
+
+  player.pulse = Math.sin(state.frame * 0.2) * 2;
+
+  if (player.dashing) {
+    player.dashTime--;
+    if (player.dashTime <= 0) {
+      player.dashing = false;
+    }
+  }
+
+  if (state.dashCooldown > 0) state.dashCooldown--;
+}
+
+function updateEntities() {
+  for (let i = entities.enemies.length - 1; i >= 0; i--) {
+    const e = entities.enemies[i];
+    e.y += e.speed;
+    e.pulse = Math.sin(state.frame * 0.15) * 3;
+
+    if (collides(player, e)) {
+      if (player.shield) {
+        player.shield = false;
+        createParticles(e.x + e.w/2, e.y + e.h/2, "#67e8f9", 25);
+        createFloatingText(e.x + e.w/2, e.y + e.h/2, "SHIELD!", "#67e8f9");
+        entities.enemies.splice(i, 1);
+      } else {
+        createParticles(player.x + player.w/2, player.y + player.h/2, "#f87171", 40);
+        shakeScreen(12);
+        state.running = false;
+        
+        if (state.score > state.bestScore) {
+          state.bestScore = state.score;
+          localStorage.setItem("neonDodgeBestScore", state.bestScore);
+          ui.best.textContent = Math.floor(state.bestScore);
+        }
+        
+        if (state.currentStreak > state.bestStreak) {
+          state.bestStreak = state.currentStreak;
+          localStorage.setItem("neonDodgeBestStreak", state.bestStreak);
+          ui.bestStreak.textContent = state.bestStreak;
+        }
+        
+        ui.msg.style.opacity = 1;
+        ui.msg.innerHTML = `GAME OVER<br><span style=\"font-size:1.2rem\">Final Score: ${Math.floor(state.score)}</span>`;
+      }
+      continue;
     }
 
-    function drawPlayer() {
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
-        ctx.fill();
+    if (e.y > canvas.height + 20) {
+      entities.enemies.splice(i, 1);
+      state.score += 8;
+      state.enemiesDodged++;
+      state.currentStreak++;
+      createFloatingText(canvas.width / 2, 50, "+8", "#86efac");
     }
+  }
 
-    function drawBullets() {
-        bullets.forEach(bullet => {
-            ctx.fillStyle = 'red';
-            ctx.beginPath();
-            ctx.arc(bullet.x, bullet.y, 5, 0, Math.PI * 2);
-            ctx.fill();
-            bullet.y -= 5;
-        });
+  for (let i = entities.coins.length - 1; i >= 0; i--) {
+    const c = entities.coins[i];
+    c.y += c.speed;
+    c.angle += 0.08;
 
-        bullets = bullets.filter(bullet => bullet.y > 0);
+    if (collides(player, {x: c.x - c.size, y: c.y - c.size, w: c.size*2, h: c.size*2})) {
+      state.coins++;
+      state.coinsCollected++;
+      const pts = 45 * state.multiplier;
+      state.score += pts;
+      state.comboTimer = 90;
+      createParticles(c.x, c.y, "#fde047", 16);
+      createFloatingText(c.x, c.y, `+${pts}`, "#fde047");
+      entities.coins.splice(i, 1);
+    } else if (c.y > canvas.height + 30) {
+      entities.coins.splice(i, 1);
     }
+  }
 
-    function gameLoop() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawPlayer();
-        drawBullets();
-        requestAnimationFrame(gameLoop);
+  for (let i = entities.shields.length - 1; i >= 0; i--) {
+    const s = entities.shields[i];
+    s.y += s.speed;
+
+    if (collides(player, {x: s.x - s.size, y: s.y - s.size, w: s.size*2, h: s.size*2})) {
+      player.shield = true;
+      player.shieldTime = 420;
+      createParticles(s.x, s.y, "#67e8f9", 22);
+      entities.shields.splice(i, 1);
+    } else if (s.y > canvas.height + 30) {
+      entities.shields.splice(i, 1);
     }
+  }
 
-    gameLoop();
+  for (let i = entities.particles.length - 1; i >= 0; i--) {
+    const p = entities.particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+    p.vx *= 0.97;
+    p.vy *= 0.97;
+    if (p.life <= 0) entities.particles.splice(i, 1);
+  }
+
+  for (let i = entities.floatingTexts.length - 1; i >= 0; i--) {
+    const t = entities.floatingTexts[i];
+    t.x += t.vx;
+    t.y += t.vy;
+    t.life--;
+    if (t.life <= 0) entities.floatingTexts.splice(i, 1);
+  }
+
+  if (player.shield) {
+    player.shieldTime--;
+    if (player.shieldTime <= 0) player.shield = false;
+  }
+
+  if (state.comboTimer > 0) {
+    state.comboTimer--;
+    state.multiplier = 1 + Math.floor(state.comboTimer / 25);
+  } else {
+    state.multiplier = 1;
+  }
+}
+
+function update() {
+  if (!state.running || state.paused) return;
+
+  state.frame++;
+  state.playTime++;
+  state.score += 0.08;
+
+  const targetLevel = 1 + Math.floor(state.score / 120);
+  if (targetLevel > state.level) {
+    state.level = targetLevel;
+  }
+
+  const targetWave = 1 + Math.floor(state.score / 400);
+  if (targetWave > state.wave) {
+    state.wave = targetWave;
+    state.waveChangeShown = false;
+  }
+
+  handlePlayer();
+  updateEntities();
+
+  if (state.frame % Math.max(30, 55 - state.level * 2 - state.wave * 1.5) === 0) spawn("enemy");
+  if (state.frame % 110 === 0) spawn("coin");
+  if (state.frame % 520 === 0 && Math.random() < 0.7) spawn("shield");
+
+  ui.score.textContent = Math.floor(state.score);
+  ui.coins.textContent = state.coins;
+  ui.level.textContent = state.level;
+  ui.wave.textContent = state.wave;
+  ui.dodged.textContent = state.enemiesDodged;
+  ui.coinCount.textContent = state.coinsCollected;
+  ui.bestStreak.textContent = state.bestStreak;
+  ui.playtime.textContent = Math.floor(state.playTime / 60);
+
+  if (state.multiplier > 1) {
+    ui.combo.style.opacity = 1;
+    ui.combo.textContent = `COMBO x${state.multiplier}!`;
+  } else {
+    ui.combo.style.opacity = 0;
+  }
+
+  if (!state.waveChangeShown && state.score % 400 < 0.1) {
+    ui.waveIndicator.textContent = `WAVE ${state.wave}!`;
+    ui.waveIndicator.style.animation = "none";
+    setTimeout(() => ui.waveIndicator.style.animation = "pulse 0.6s", 10);
+    state.waveChangeShown = true;
+  }
+}
+
+function render() {
+  ctx.save();
+  
+  if (state.shake > 0) {
+    const dx = (Math.random() - 0.5) * state.shake;
+    const dy = (Math.random() - 0.5) * state.shake;
+    ctx.translate(dx, dy);
+    state.shake *= 0.85;
+    if (state.shake < 0.5) state.shake = 0;
+  }
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#e2e8f0";
+  entities.stars.forEach(s => {
+    ctx.globalAlpha = 0.6 + Math.sin(state.frame * 0.05 + s.x) * 0.4;
+    ctx.fillRect(s.x, s.y, s.size, s.size);
+    s.y += s.speed;
+    if (s.y > canvas.height) s.y = -5;
+  });
+  ctx.globalAlpha = 1;
+
+  ctx.strokeStyle = player.dashing ? "#ec4899" : "#22c55e";
+  ctx.lineWidth = player.dashing ? 8 : 6;
+  ctx.lineCap = "round";
+  for (let i = 0; i < player.trail.length; i++) {
+    const alpha = (i + 1) / player.trail.length;
+    ctx.globalAlpha = alpha * 0.6;
+    ctx.beginPath();
+    ctx.moveTo(player.trail[i].x, player.trail[i].y);
+    if (i < player.trail.length - 1) {
+      ctx.lineTo(player.trail[i+1].x, player.trail[i+1].y);
+    }
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = player.shield ? "#67e8f9" : (player.dashing ? "#ec4899" : "#4ade80");
+  ctx.globalAlpha = 0.7 + Math.sin(state.frame * 0.3) * 0.3;
+  ctx.fillRect(player.x + 8, player.y + player.h - 4, player.w - 16, 12);
+
+  ctx.fillStyle = player.dashing ? "#ec4899" : "#22c55e";
+  ctx.shadowColor = player.dashing ? "#f472b6" : "#86efac";
+  ctx.shadowBlur = 25;
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+  ctx.shadowBlur = 0;
+
+  if (player.shield) {
+    ctx.strokeStyle = "#67e8f9";
+    ctx.lineWidth = 4 + Math.sin(state.frame * 0.25) * 1.5;
+    ctx.shadowColor = "#67e8f9";
+    ctx.shadowBlur = 30;
+    ctx.beginPath();
+    ctx.arc(player.x + player.w/2, player.y + player.h/2, 28, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  if (state.dashCooldown > 0) {
+    const progress = state.dashCooldown / 60;
+    ctx.strokeStyle = `rgba(236, 72, 153, ${progress * 0.6})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(player.x + player.w/2, player.y + player.h/2, 40, -Math.PI/2, -Math.PI/2 + Math.PI * 2 * (1 - progress));
+    ctx.stroke();
+  }
+
+  ctx.shadowBlur = 15;
+  entities.enemies.forEach(e => {
+    ctx.fillStyle = "#ef4444";
+    ctx.shadowColor = "#f87171";
+    const offset = Math.sin(state.frame * 0.2) * 2;
+    ctx.fillRect(e.x + offset, e.y, e.w, e.h);
+  });
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = "#fde047";
+  ctx.shadowColor = "#fef08c";
+  ctx.shadowBlur = 20;
+  entities.coins.forEach(c => {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.angle);
+    ctx.fillRect(-c.size, -c.size, c.size*2, c.size*2);
+    ctx.restore();
+  });
+  ctx.shadowBlur = 0;
+
+  ctx.strokeStyle = "#67e8f9";
+  ctx.lineWidth = 3.5;
+  ctx.shadowColor = "#67e8f9";
+  ctx.shadowBlur = 18;
+  entities.shields.forEach(s => {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+  ctx.shadowBlur = 0;
+
+  entities.particles.forEach(p => {
+    ctx.globalAlpha = p.life / 45;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+  });
+  ctx.globalAlpha = 1;
+
+  entities.floatingTexts.forEach(t => {
+    ctx.globalAlpha = t.life / 60;
+    ctx.fillStyle = t.color;
+    ctx.font = "bold 20px Arial";
+    ctx.textAlign = "center";
+    ctx.shadowColor = t.color;
+    ctx.shadowBlur = 10;
+    ctx.fillText(t.text, t.x, t.y);
+    ctx.shadowBlur = 0;
+  });
+  ctx.globalAlpha = 1;
+
+  if (state.paused) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 48px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("PAUSED", canvas.width / 2, canvas.height / 2);
+  }
+
+  ctx.restore();
+}
+
+function gameLoop() {
+  update();
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+function resetGame() {
+  state = {
+    running: true,
+    paused: false,
+    score: 0,
+    coins: 0,
+    level: 1,
+    wave: 1,
+    multiplier: 1,
+    comboTimer: 0,
+    frame: 0,
+    shake: 0,
+    bestScore: state.bestScore,
+    enemiesDodged: 0,
+    coinsCollected: 0,
+    bestStreak: state.bestStreak,
+    currentStreak: 0,
+    playTime: 0,
+    dashCooldown: 0,
+    waveStartTime: 0,
+    waveChangeShown: false
+  };
+
+  entities.enemies = [];
+  entities.coins = [];
+  entities.shields = [];
+  entities.particles = [];
+  entities.floatingTexts = [];
+
+  player.x = 384;
+  player.y = 420;
+  player.shield = false;
+  player.shieldTime = 0;
+  player.trail = [];
+  player.dashing = false;
+  player.dashTime = 0;
+
+  ui.msg.style.opacity = 0;
+  ui.msg.innerHTML = "";
+  ui.waveIndicator.textContent = "";
+}
+
+gameLoop();
 </script>
 </body>
 </html>
