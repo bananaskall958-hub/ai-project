@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Dodge Enhanced</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: black;
+        }
+        canvas {
+            display: block;
+            margin: auto;
+            background: radial-gradient(circle, #00FF00, #000000);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let player, obstacles, score, gameInterval;
+
+        function init() {
+            player = { x: canvas.width / 2, y: canvas.height - 30, width: 20, height: 20 };
+            obstacles = [];
+            score = 0;
+            gameInterval = setInterval(gameLoop, 1000 / 60);
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlayer();
+            updateObstacles();
+            drawObstacles();
+            checkCollision();
+            updateScore();
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = 'cyan';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        function createObstacle() {
+            const size = Math.random() * 30 + 10;
+            const x = Math.random() * (canvas.width - size);
+            obstacles.push({ x, y: 0, width: size, height: size });
+        }
+
+        function updateObstacles() {
+            if (Math.random() < 0.02) createObstacle();
+            obstacles.forEach((obs, index) => {
+                obs.y += 3;
+                if (obs.y > canvas.height) obstacles.splice(index, 1);
+            });
+        }
+
+        function drawObstacles() {
+            ctx.fillStyle = 'red';
+            obstacles.forEach(obs => {
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+            });
+        }
+
+        function checkCollision() {
+            obstacles.forEach(obs => {
+                if (obs.x < player.x + player.width &&
+                    obs.x + obs.width > player.x &&
+                    obs.y < player.y + player.height &&
+                    obs.y + obs.height > player.y) {
+                    clearInterval(gameInterval);
+                    alert('Game Over! Your score: ' + score);
+                    init();
+                }
+            });
+        }
+
+        function updateScore() {
+            score += 0.01;
+            ctx.fillStyle = 'white';
+            ctx.fillText('Score: ' + Math.floor(score), 10, 20);
+        }
+
+        window.addEventListener('mousemove', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            player.x = event.clientX - rect.left - player.width / 2;
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+        });
+
+        window.onload = init;
+    </script>
+</body>
+</html>
